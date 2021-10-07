@@ -2,7 +2,7 @@
 <connectionConfig>
     <name>connection</name>
     <driverClass>org.h2.Driver</driverClass>
-    <URL>jdbc:h2:C:/Users/88597/knowledge_db</URL>
+    <URL>jdbc:h2:C:/Users/XXXX/knowledge_db</URL>
     <!--
     <URL>jdbc:h2:tcp://localhost/./knowledge_db</URL>
     -->

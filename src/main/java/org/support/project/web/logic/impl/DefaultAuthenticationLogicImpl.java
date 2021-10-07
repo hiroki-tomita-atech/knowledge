@@ -5,7 +5,6 @@ import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.List;
-
 import javax.crypto.BadPaddingException;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
@@ -13,7 +12,6 @@ import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
-
 import org.apache.directory.api.ldap.model.exception.LdapException;
 import org.support.project.aop.Aspect;
 import org.support.project.common.config.ConfigLoader;
@@ -43,18 +41,17 @@ import org.support.project.web.exception.AuthenticateException;
 import org.support.project.web.logic.AddUserProcess;
 import org.support.project.web.logic.LdapLogic;
 import org.support.project.web.logic.UserLogic;
-
 import net.arnx.jsonic.JSON;
 
 @DI(instance = Instance.Singleton)
 public class DefaultAuthenticationLogicImpl extends AbstractAuthenticationLogic<LoginedUser> {
     /** ログ */
     private static final Log LOG = LogFactory.getLog(DefaultAuthenticationLogicImpl.class);
-    
+
     private int cookieMaxAge = -1; // 日にち単位
     private String cookieEncryptKey = "";
     private boolean cookieSecure = true;
-    
+
     /**
      * Cookieログインに使う情報の初期化
      * @param cookieMaxAge cookieMaxAge
@@ -66,10 +63,10 @@ public class DefaultAuthenticationLogicImpl extends AbstractAuthenticationLogic<
         this.cookieEncryptKey = cookieEncryptKey;
         this.cookieSecure = cookieSecure;
     }
-    
+
     /**
      * ログイン情報をクッキーに保持
-     * 
+     *
      * @param req request
      * @param res response
      * @throws AuthenticateException AuthenticateException
@@ -81,15 +78,15 @@ public class DefaultAuthenticationLogicImpl extends AbstractAuthenticationLogic<
             Cookie[] cookies = req.getCookies();
             if (cookies != null && cookieMaxAge > 0 && StringUtils.isNotEmpty(cookieEncryptKey)) {
                 LoginedUser user = getSession(req);
-                
+
                 UserSecret secret = new UserSecret();
                 secret.setUserKey(user.getLoginUser().getUserKey());
                 secret.setUserName(user.getLoginUser().getUserName());
                 secret.setEmail(user.getLoginUser().getMailAddress());
-                
+
                 String json = JSON.encode(secret);
                 json = PasswordUtil.encrypt(json, cookieEncryptKey);
-    
+
                 Cookie cookie = new Cookie(CommonWebParameter.LOGIN_USER_KEY, json);
                 cookie.setPath(req.getContextPath() + "/");
                 cookie.setMaxAge(cookieMaxAge);
@@ -100,10 +97,10 @@ public class DefaultAuthenticationLogicImpl extends AbstractAuthenticationLogic<
             throw new AuthenticateException(e);
         }
     }
-    
+
     /**
      * Cookieに保持しているログイン情報でログイン
-     * 
+     *
      * @param req request
      * @param res response
      * @return result
@@ -124,7 +121,7 @@ public class DefaultAuthenticationLogicImpl extends AbstractAuthenticationLogic<
                     try {
                         json = PasswordUtil.decrypt(json, cookieEncryptKey);
                         UserSecret user = JSON.decode(json, UserSecret.class);
-                        
+
                         UsersEntity entity =  UsersDao.get().selectOnLowerUserKey(user.getUserKey());
                         if (entity == null) {
                             return false;
@@ -135,8 +132,8 @@ public class DefaultAuthenticationLogicImpl extends AbstractAuthenticationLogic<
                             LOG.info("Cookie of LOGIN_USER_KEY is invalid.");
                             return false;
                         }
-                        
-                        
+
+
                         LOG.debug(user.getUserKey() + " is Login(from cookie).");
                         setSession(user.getUserKey(), req, res); //セッションにLoginUserを生成
 
@@ -166,16 +163,17 @@ public class DefaultAuthenticationLogicImpl extends AbstractAuthenticationLogic<
         session.setAttribute("COOKIE_LOGIN_CHECK", Boolean.TRUE);
         return false;
     }
-    
+
     /*
      * (non-Javadoc)
-     * 
+     *
      * @see org.support.project.web.logic.impl.AbstractAuthenticationLogic#auth(java.lang.String, java.lang.String)
      */
     @Override
     @Aspect(advice = org.support.project.ormapping.transaction.Transaction.class)
     public int auth(String userId, String password) throws AuthenticateException {
         initLogic();
+        System.out.println("認証スタート");
         // Ldap認証が有効であれば、Ldap認証を実施する
         LdapConfigsDao dao = LdapConfigsDao.get();
         List<LdapConfigsEntity> ldaps = dao.selectAll();
@@ -201,7 +199,7 @@ public class DefaultAuthenticationLogicImpl extends AbstractAuthenticationLogic<
                         return usersEntity.getUserId();
                     } else {
                         UsersDao usersDao = UsersDao.get();
-                        
+
                         // ユーザ情報が無ければ登録、あれば更新
                         UsersEntity usersEntity = usersDao.selectOnLowerUserKey(userId);
                         if (usersEntity == null) {
@@ -230,7 +228,7 @@ public class DefaultAuthenticationLogicImpl extends AbstractAuthenticationLogic<
                 throw new AuthenticateException(e);
             }
         }
-        
+
         // DB認証開始
         try {
             if (StringUtils.isEmpty(password)) {
@@ -239,7 +237,7 @@ public class DefaultAuthenticationLogicImpl extends AbstractAuthenticationLogic<
             UsersDao usersDao = UsersDao.get();
             UsersEntity usersEntity = usersDao.selectOnUserKey(userId);
             AppConfig config = ConfigLoader.load(AppConfig.APP_CONFIG, AppConfig.class);
-            if (usersEntity != null && 
+            if (usersEntity != null &&
                     (usersEntity.getAuthLdap() == null || usersEntity.getAuthLdap().intValue() == INT_FLAG.OFF.getValue())
             ) {
                 String hash = PasswordUtil.getStretchedPassword(password, usersEntity.getSalt(), config.getHashIterations());
@@ -255,7 +253,7 @@ public class DefaultAuthenticationLogicImpl extends AbstractAuthenticationLogic<
 
     /**
      * Ldapから取得した情報でユーザ情報更新 同一IDの
-     * 
+     *
      * @param userId
      * @param ldapInfo
      * @param usersDao
@@ -292,7 +290,7 @@ public class DefaultAuthenticationLogicImpl extends AbstractAuthenticationLogic<
 
     /**
      * Ldapから取得した情報でユーザ登録
-     * 
+     *
      * @param userId
      * @param password
      * @param ldapInfo
