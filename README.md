@@ -9,3 +9,8 @@ maven package -DskipTests=true
 
 DB接続情報は src/main/resources/connection.xml に書かれているが、デフォルトだと H2Database を使うので、
 適宜情報を修正する。
+
+# OAuth 用情報の設定方法
+
+環境変数でクライアントID, クライアントシークレット、リダイレクトURLを設定することを想定している。
+Windows の場合は「システム環境変数」として設定すればよい。
