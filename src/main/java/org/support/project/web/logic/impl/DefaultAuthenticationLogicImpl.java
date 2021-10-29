@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import javax.crypto.BadPaddingException;
 import javax.crypto.IllegalBlockSizeException;
@@ -13,6 +14,14 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 import org.apache.directory.api.ldap.model.exception.LdapException;
+import org.apache.http.HttpEntity;
+import org.apache.http.client.entity.UrlEncodedFormEntity;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.message.BasicNameValuePair;
+import org.apache.http.util.EntityUtils;
 import org.support.project.aop.Aspect;
 import org.support.project.common.config.ConfigLoader;
 import org.support.project.common.config.INT_FLAG;
@@ -28,19 +37,32 @@ import org.support.project.di.Instance;
 import org.support.project.web.bean.LdapInfo;
 import org.support.project.web.bean.LoginedUser;
 import org.support.project.web.bean.UserSecret;
+import org.support.project.web.common.HttpStatus;
 import org.support.project.web.config.AppConfig;
 import org.support.project.web.config.CommonWebParameter;
 import org.support.project.web.config.WebConfig;
 import org.support.project.web.dao.LdapConfigsDao;
 import org.support.project.web.dao.UserAliasDao;
 import org.support.project.web.dao.UsersDao;
+import org.support.project.web.entity.GoogleUserEntity;
 import org.support.project.web.entity.LdapConfigsEntity;
+import org.support.project.web.entity.TokenEntity;
 import org.support.project.web.entity.UserAliasEntity;
 import org.support.project.web.entity.UsersEntity;
 import org.support.project.web.exception.AuthenticateException;
 import org.support.project.web.logic.AddUserProcess;
 import org.support.project.web.logic.LdapLogic;
 import org.support.project.web.logic.UserLogic;
+import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow;
+import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
+import com.google.api.client.http.javanet.NetHttpTransport;
+import com.google.api.client.json.gson.GsonFactory;
+import com.google.api.client.util.store.MemoryDataStoreFactory;
+import com.google.api.services.oauth2.Oauth2;
+import com.google.api.services.oauth2.model.Userinfo;
+import com.google.gson.FieldNamingPolicy;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import net.arnx.jsonic.JSON;
 
 @DI(instance = Instance.Singleton)
@@ -51,6 +73,11 @@ public class DefaultAuthenticationLogicImpl extends AbstractAuthenticationLogic<
     private int cookieMaxAge = -1; // 日にち単位
     private String cookieEncryptKey = "";
     private boolean cookieSecure = true;
+
+    private String clientId = System.getenv("CLIENT_ID");
+    private String clientSecret = System.getenv("CLIENT_SECRET");
+    private String redirectUrl = System.getenv("BASE_URL") + "/oauth2/callback";
+    private String scopeUrl = "https://www.googleapis.com/auth/userinfo.email";
 
     /**
      * Cookieログインに使う情報の初期化
@@ -164,6 +191,73 @@ public class DefaultAuthenticationLogicImpl extends AbstractAuthenticationLogic<
         return false;
     }
 
+    public String authOAuth2() throws IOException {
+        System.out.println("---- 環境変数 ----");
+        System.out.println(this.clientId);
+        System.out.println(this.clientSecret);
+        System.out.println(this.redirectUrl);
+        GoogleAuthorizationCodeFlow authFlow = new GoogleAuthorizationCodeFlow.Builder(
+            new NetHttpTransport(),
+            GsonFactory.getDefaultInstance(),
+            this.clientId,
+            this.clientSecret,
+            Collections.singleton(this.scopeUrl))
+            .setDataStoreFactory(new MemoryDataStoreFactory())
+            .setAccessType("offline").build();
+
+        String url = authFlow.newAuthorizationUrl().setRedirectUri(this.redirectUrl).build();
+        return url;
+    }
+
+    public TokenEntity fetchTokenFromAuthCode(String code) throws IOException {
+        String url = "https://oauth2.googleapis.com/token";
+
+        CloseableHttpClient httpclient = HttpClients.createDefault();
+
+        HttpPost request = new HttpPost(url);
+        List<BasicNameValuePair> parameters = new ArrayList<BasicNameValuePair>();
+        parameters.add(new BasicNameValuePair("code", code)); //上記取得した認可コード
+        parameters.add(new BasicNameValuePair("client_id", this.clientId)); //コンソールにAPI認証情報のクライアントID
+        parameters.add(new BasicNameValuePair("client_secret", this.clientSecret)); //コンソールにAPI認証情報のクライアントシークレット
+        parameters.add(new BasicNameValuePair("redirect_uri", this.redirectUrl)); //設定した承認済みのリダイレクトURI
+        parameters.add(new BasicNameValuePair("grant_type", "authorization_code")); //固定
+
+        HttpEntity entity = new UrlEncodedFormEntity(parameters);
+        request.setEntity(entity);
+
+        request.setHeader("Content-Type", "application/x-www-form-urlencoded");
+
+        CloseableHttpResponse response = httpclient.execute(request);
+        String result = null;
+        if (response.getStatusLine().getStatusCode() == HttpStatus.SC_200_OK) {
+            result = EntityUtils.toString(response.getEntity(), "UTF-8");
+            System.out.println(result);
+        }
+        response.close();
+
+        Gson gson = new GsonBuilder()
+                    .setFieldNamingPolicy(FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES)
+                    .create();
+
+        TokenEntity token = gson.fromJson(result, TokenEntity.class);
+        return token;
+    }
+
+    public GoogleUserEntity fetchProfile(TokenEntity token) throws IOException {
+        GoogleCredential credential = new GoogleCredential().setAccessToken(token.getAccessToken());
+        Oauth2 oauth2 = new Oauth2.Builder(new NetHttpTransport(), GsonFactory.getDefaultInstance(), credential)
+                        .setApplicationName("Oauth2").build();
+        Userinfo userinfo = oauth2.userinfo().get().execute();
+
+        Gson gson = new GsonBuilder()
+                        .setFieldNamingPolicy(FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES)
+                        .create();
+
+        GoogleUserEntity googleUser = gson.fromJson(userinfo.toPrettyString(), GoogleUserEntity.class);
+
+        return googleUser;
+    }
+
     /*
      * (non-Javadoc)
      *
@@ -173,7 +267,8 @@ public class DefaultAuthenticationLogicImpl extends AbstractAuthenticationLogic<
     @Aspect(advice = org.support.project.ormapping.transaction.Transaction.class)
     public int auth(String userId, String password) throws AuthenticateException {
         initLogic();
-        System.out.println("認証スタート");
+        System.out.println(userId + "：" + password);
+
         // Ldap認証が有効であれば、Ldap認証を実施する
         LdapConfigsDao dao = LdapConfigsDao.get();
         List<LdapConfigsEntity> ldaps = dao.selectAll();
@@ -324,6 +419,28 @@ public class DefaultAuthenticationLogicImpl extends AbstractAuthenticationLogic<
         usersEntity = UserLogic.get().insert(usersEntity, roles.toArray(new String[0]));
         LOG.info("Add User on first Ldap login. [user]" + userId);
         return usersEntity;
+    }
+
+    public UsersEntity addUser(GoogleUserEntity googleUser) {
+        UsersEntity user = new UsersEntity();
+        user.setUserKey(googleUser.getId());
+        user.setUserName(googleUser.getFamilyName() + " " + googleUser.getGivenName());
+        user.setPassword(RandomUtil.randamGen(32));
+        user.setMailAddress(googleUser.getEmail());
+        user.setAuthLdap(INT_FLAG.ON.getValue());
+
+        List<String> roles = new ArrayList<String>();
+        roles.add(WebConfig.ROLE_USER);
+
+        user = UserLogic.get().insert(user, roles.toArray(new String[0]));
+        LOG.info("Add User on first Ldap login. [user]" + user.getUserId());
+        return user;
+
+    }
+
+    public UsersEntity getUserFromMail(String email) {
+        UsersEntity user = UsersDao.get().selectOnMail(email);
+        return user;
     }
 
 }

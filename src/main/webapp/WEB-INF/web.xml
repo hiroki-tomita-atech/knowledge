@@ -63,7 +63,7 @@
         </init-param>
         <init-param>
             <param-name>close-ignore-regular-expression</param-name>
-            <param-value>^/index|^/template|^/bower|^/images|^/css|^/js|^/favicon.ico|^/lang|^/assets|css$|js$|jpg$|jpeg$|gif$|png$|ico$|html$|^/open.signup|^/open.PasswordInitialization|^/open.account</param-value>
+            <param-value>^/index|^/template|^/bower|^/images|^/css|^/js|^/favicon.ico|^/lang|^/assets|css$|js$|jpg$|jpeg$|gif$|png$|ico$|html$|^/open.signup|^/open.PasswordInitialization|^/open.account|^/oauth2.*$</param-value>
         </init-param>
         <init-param>
             <param-name>login-page</param-name>
@@ -94,12 +94,12 @@
             <param-value>false</param-value>
         </init-param>
     </filter>
-    
+
     <filter>
         <filter-name>MultipartFilter</filter-name>
         <filter-class>org.support.project.web.filter.MultipartFilter</filter-class>
     </filter>
-    
+
     <filter>
         <filter-name>MaintenanceModeFilter</filter-name>
         <filter-class>org.support.project.knowledge.filter.MaintenanceModeFilter</filter-class>
@@ -128,8 +128,8 @@
         <url-pattern>/*</url-pattern>
         <dispatcher>REQUEST</dispatcher>
     </filter-mapping>
-    
-    <!-- 
+
+    <!--
     <filter-mapping>
         <filter-name>BufferedServletInputStreamFilter</filter-name>
         <url-pattern>/*</url-pattern>
@@ -160,7 +160,7 @@
         <url-pattern>/*</url-pattern>
         <dispatcher>REQUEST</dispatcher>
     </filter-mapping>
-    
+
     <filter-mapping>
         <filter-name>MaintenanceModeFilter</filter-name>
         <url-pattern>/*</url-pattern>
@@ -205,8 +205,8 @@
         <location>/WEB-INF/views/commons/errors/server_error.jsp</location>
     </error-page>
 
-    <!-- <jsp-config> <jsp-property-group> <url-pattern>*.jsp</url-pattern> 
-        <el-ignored>false</el-ignored> <page-encoding>UTF-8</page-encoding> <scripting-invalid>false</scripting-invalid> 
-        <include-prelude>/WEB-INF/view/common/common.jsp</include-prelude> </jsp-property-group> 
+    <!-- <jsp-config> <jsp-property-group> <url-pattern>*.jsp</url-pattern>
+        <el-ignored>false</el-ignored> <page-encoding>UTF-8</page-encoding> <scripting-invalid>false</scripting-invalid>
+        <include-prelude>/WEB-INF/view/common/common.jsp</include-prelude> </jsp-property-group>
         </jsp-config> -->
 </web-app>

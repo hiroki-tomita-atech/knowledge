@@ -1,9 +1,9 @@
 package org.support.project.web.filter;
 
 import java.io.IOException;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
 import javax.servlet.Filter;
 import javax.servlet.FilterChain;
 import javax.servlet.FilterConfig;
@@ -13,7 +13,6 @@ import javax.servlet.ServletResponse;
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-
 import org.support.project.common.log.Log;
 import org.support.project.common.log.LogFactory;
 import org.support.project.common.util.RandomUtil;
@@ -22,6 +21,8 @@ import org.support.project.web.common.HttpStatus;
 import org.support.project.web.common.HttpUtil;
 import org.support.project.web.config.CommonWebParameter;
 import org.support.project.web.dao.UsersDao;
+import org.support.project.web.entity.GoogleUserEntity;
+import org.support.project.web.entity.TokenEntity;
 import org.support.project.web.entity.UsersEntity;
 import org.support.project.web.exception.AuthenticateException;
 import org.support.project.web.logic.AuthenticationLogic;
@@ -29,7 +30,7 @@ import org.support.project.web.wrapper.HttpServletRequestWrapper;
 
 /**
  * 認証用のフィルタ
- * 
+ *
  * @author Koda
  *
  */
@@ -47,6 +48,8 @@ public class AuthenticationFilter implements Filter {
     private String logoutProcess = "/signout";
     /** ログアウト後の初期ページ(リダイレクト) */
     private String outPage = "/index";
+
+    private String callback = "/oauth2/callback";
 
     /** ログイン画面 */
     private String loginPage = "/WEB-INF/view/auth/form.jsp";
@@ -173,7 +176,7 @@ public class AuthenticationFilter implements Filter {
                 pathBuilder.append(req.getPathInfo());
             }
             String path = pathBuilder.toString();
-            // LOG.trace(path);
+             LOG.trace(path);
 
             if (!isLogin(req)) {
                 authenticationLogic.cookieLogin(req, res);
@@ -205,12 +208,7 @@ public class AuthenticationFilter implements Filter {
                 } else {
                     // Post
                     // ログイン処理のパスなので、ログイン実施
-                    if (doLogin(req, res)) {
-                        // ログイン情報をCookieに保持
-                        authenticationLogic.setCookie(req, res);
-
-                        // ログイン成功
-                        this.changePage(req, res);
+                    if (getAuthUrl(req, res)) {
                         return;
                     } else {
                         // ログイン失敗
@@ -256,6 +254,42 @@ public class AuthenticationFilter implements Filter {
                 // filterchain.doFilter(req, res);
                 HttpUtil.forward(res, req, authorizerErrorPage);
                 return;
+            } else if (path.startsWith(callback)) {
+                System.out.println("-------------- callback ---------------");
+                Map<String, String> envs = System.getenv();
+                for(String key : envs.keySet()) {
+                    System.out.println(key + ":" + envs.get(key));
+                }
+
+                System.out.println("----- CLIENT_ID -----");
+                System.out.println(System.getenv("CLIENT_ID"));
+
+                // 認可コードからトークン情報取得
+                String code = req.getParameter("code");
+                TokenEntity token = authenticationLogic.fetchTokenFromAuthCode(code);
+
+                System.out.println("----- デシリアライズ後 -----");
+                System.out.println(token.getAccessToken());
+                System.out.println(token.getScope());
+
+                // トークンを使って Google からユーザプロフィール取得後、Knowledge 上のユーザエンティティ取得
+                GoogleUserEntity googleUser = authenticationLogic.fetchProfile(token);
+                UsersEntity user = authenticationLogic.getUserFromMail(googleUser.getEmail());
+
+                // Knowledge 上にユーザ情報が見つからない場合、新規ユーザとして追加する
+                if(user == null) {
+                    user = authenticationLogic.addUser(googleUser);
+                }
+
+                // Knowledge へのログイン処理
+                if(doLogin(req, res, user.getUserId(), user.getUserKey())) {
+                  // ログイン情報をCookieに保持
+                  authenticationLogic.setCookie(req, res);
+
+                  // ログイン成功
+                  this.changePage(req, res);
+                  return;
+                }
             }
 
             if (!isLogin(req)) {
@@ -314,7 +348,7 @@ public class AuthenticationFilter implements Filter {
 
     /**
      * ログイン完了時にページ遷移(リダイレクト)
-     * 
+     *
      * @param req request
      * @param res response
      * @throws ServletException ServletException
@@ -338,16 +372,21 @@ public class AuthenticationFilter implements Filter {
 
     /**
      * ログイン処理
-     * 
+     *
      * @param req request
      * @return result
      * @throws Exception Exception
      */
-    protected boolean doLogin(HttpServletRequest req, HttpServletResponse res) throws Exception {
+    protected boolean getAuthUrl(HttpServletRequest req, HttpServletResponse res) throws Exception {
         String userkey = req.getParameter("username");
         String password = req.getParameter("password");
 
-        int userId = authenticationLogic.auth(userkey, password);
+        String url = authenticationLogic.authOAuth2();
+        res.sendRedirect(url);
+        return true;
+    }
+
+    protected boolean doLogin(HttpServletRequest req, HttpServletResponse res, int userId, String userKey) throws Exception {
         if (userId >= 0) {
             // セッションにログイン情報を格納
             LOG.debug(userId + " is Login.");
@@ -357,10 +396,10 @@ public class AuthenticationFilter implements Filter {
                 // なぜかユーザ情報が無い
                 return false;
             }
-            if (!userkey.equals(usersEntity.getUserKey())) {
-                userkey = usersEntity.getUserKey();
+            if (!userKey.equals(usersEntity.getUserKey())) {
+                userKey = usersEntity.getUserKey();
             }
-            authenticationLogic.setSession(userkey, req, res);
+            authenticationLogic.setSession(userKey, req, res);
             return true;
         }
         return false;
@@ -372,7 +411,7 @@ public class AuthenticationFilter implements Filter {
 
     /**
      * 認証のCookieを削除
-     * 
+     *
      * @param req request
      * @param res response
      */
@@ -389,7 +428,7 @@ public class AuthenticationFilter implements Filter {
 
     /**
      * get login page url
-     * 
+     *
      * @return the loginProcess
      */
     protected String getLoginProcess() {
@@ -398,7 +437,7 @@ public class AuthenticationFilter implements Filter {
 
     /**
      * get after login page url
-     * 
+     *
      * @return the loginPage
      */
     protected String getLoginPage() {
