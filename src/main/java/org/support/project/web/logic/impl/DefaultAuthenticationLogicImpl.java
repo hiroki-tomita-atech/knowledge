@@ -192,10 +192,6 @@ public class DefaultAuthenticationLogicImpl extends AbstractAuthenticationLogic<
     }
 
     public String authOAuth2() throws IOException {
-        System.out.println("---- 環境変数 ----");
-        System.out.println(this.clientId);
-        System.out.println(this.clientSecret);
-        System.out.println(this.redirectUrl);
         GoogleAuthorizationCodeFlow authFlow = new GoogleAuthorizationCodeFlow.Builder(
             new NetHttpTransport(),
             GsonFactory.getDefaultInstance(),

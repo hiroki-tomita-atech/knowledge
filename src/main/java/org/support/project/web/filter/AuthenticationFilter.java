@@ -1,7 +1,6 @@
 package org.support.project.web.filter;
 
 import java.io.IOException;
-import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.servlet.Filter;
@@ -255,22 +254,9 @@ public class AuthenticationFilter implements Filter {
                 HttpUtil.forward(res, req, authorizerErrorPage);
                 return;
             } else if (path.startsWith(callback)) {
-                System.out.println("-------------- callback ---------------");
-                Map<String, String> envs = System.getenv();
-                for(String key : envs.keySet()) {
-                    System.out.println(key + ":" + envs.get(key));
-                }
-
-                System.out.println("----- CLIENT_ID -----");
-                System.out.println(System.getenv("CLIENT_ID"));
-
                 // 認可コードからトークン情報取得
                 String code = req.getParameter("code");
                 TokenEntity token = authenticationLogic.fetchTokenFromAuthCode(code);
-
-                System.out.println("----- デシリアライズ後 -----");
-                System.out.println(token.getAccessToken());
-                System.out.println(token.getScope());
 
                 // トークンを使って Google からユーザプロフィール取得後、Knowledge 上のユーザエンティティ取得
                 GoogleUserEntity googleUser = authenticationLogic.fetchProfile(token);
