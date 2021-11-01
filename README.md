@@ -12,7 +12,7 @@ DB接続情報は src/main/resources/connection.xml に書かれているが、�
 
 # OAuth 用情報の設定方法
 
-環境変数でクライアントID, クライアントシークレット、リダイレクトURLを設定することを想定している。
+クライアントID, クライアントシークレット、リダイレクトURLを環境変数から取得する。
 
 ## Windows
 
@@ -20,4 +20,14 @@ DB接続情報は src/main/resources/connection.xml に書かれているが、�
 
 ## Linux
 
-app.env というファイルを作り、それに記述する。
+コンテナ上での稼働を想定しているので、Docker 経由で環境変数をコンテナに渡す。
+例えば、Docker Compose を使っている場合、app.env というファイルを作り、それに記述する。
+
+```
+...
+app:
+  image: koda/docker-knowledge
+  env_file:
+    - /.../app.env
+...
+```

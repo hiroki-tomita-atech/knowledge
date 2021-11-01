@@ -14,17 +14,20 @@
 <c:param name="PARAM_HEAD">
 </c:param>
 
-
+<c:param name="PARAM_SCRIPTS">
+<script type="text/javascript" src="<%= jspUtil.mustReloadFile("/js/signin-form.js") %>"></script>
+</c:param>
 
 <c:param name="PARAM_CONTENT">
 <h4 class="title"><%= jspUtil.label("label.login") %></h4>
 
     <div class="container">
+        <%= jspUtil.label("knowledge.auth.signin.description") %>
         <form class=""
             action="<%=request.getContextPath()%>/signin"
             name="login" method="post">
-            
-            <% if (!StringUtils.isEmpty(request.getAttribute("page")) 
+
+            <% if (!StringUtils.isEmpty(request.getAttribute("page"))
                     && !"/open.knowledge/list".equals(request.getAttribute("page"))) { %>
                 <div class="form-group">
                     <div class="">
@@ -32,7 +35,7 @@
                     </div>
                 </div>
             <% } %>
-            
+
             <c:if test="${loginError}">
                 <div class="form-group">
                     <div class="">
@@ -43,50 +46,16 @@
                     </div>
                 </div>
             </c:if>
-            
-            <div class="form-group">
-                <label for="inputEmail" class="control-label"><%= jspUtil.label("knowledge.auth.label.id") %></label>
-                <div class="">
-                <input type="text" class="form-control"
-                    name="username" value="<%= jspUtil.out("username") %>"
-                    placeholder="<%= jspUtil.label("knowledge.auth.label.id") %>" autofocus>
-                </div>
-            </div>
-            <div class="form-group">
-                <label for="inputPass" class="control-label"><%= jspUtil.label("knowledge.auth.label.password") %></label>
-                <div class="">
-                <input type="password" class="form-control"
-                    name="password" value="<%= jspUtil.out("password") %>"
-                    placeholder="<%= jspUtil.label("knowledge.auth.label.password") %>">
-                </div>
-            </div>
             <input type="hidden" name="page" value="<%= jspUtil.out("page") %>" id="page">
-            
+
             <div class="form-group">
-                <div class="">
-                    <button class="btn btn-primary " type="submit">
-                        <i class="fa fa-sign-in"></i>&nbsp;<%= jspUtil.label("knowledge.auth.signin") %>
-                    </button>
-<% if (SystemConfigLogic.get().isUserAddAble()) { %>
-                    <a href="<%= request.getContextPath() %>/open.signup/view" class="btn btn-info">
-                        <i class="fa fa-plus-square"></i>&nbsp;<%= jspUtil.label("knowledge.auth.signup") %>
-                    </a>
-<% } %>
-
-            <br/><br/>
-            <a href="<%=request.getContextPath()%>/open.PasswordInitialization/view" class="text-primary">
-                <i class="fa fa-key"></i>&nbsp;<%= jspUtil.label("knowledge.auth.forgot.password") %>
-            </a>
-
-
-                </div>
+                <input id="login-btn" type="image" src="<%=request.getContextPath()%>/images/google-btn/btn_google_signin_dark_normal_web.png" />
             </div>
-                
-                
+
         </form>
 
     </div>
-    
+
 </c:param>
 
 </c:import>
