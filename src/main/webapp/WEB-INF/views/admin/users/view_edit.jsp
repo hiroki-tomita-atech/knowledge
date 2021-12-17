@@ -80,7 +80,7 @@ function deleteUser() {
     </div>
     <div class="form-group">
         <label for="userName"><%= jspUtil.label("knowledge.signup.label.name") %></label>
-        <input type="text" class="form-control" name="userName" id="userName" placeholder="User Name" value="<%= jspUtil.out("userName") %>" readonly="readonly" />
+        <input type="text" class="form-control" name="userName" id="userName" placeholder="User Name" value="<%= jspUtil.out("userName") %>" />
     </div>
 
 <% } else { %>
@@ -111,11 +111,11 @@ function deleteUser() {
         <label for="role_${role.roleId}"><%= jspUtil.label("label.role") %></label><br/>
         <c:forEach var="role" items="${systemRoles}" varStatus="status">
         <label class="radio-inline">
-            <input type="checkbox" value="<%= jspUtil.out("role.roleKey") %>" name="roles" 
-                id="role_${role.roleId}" <% 
+            <input type="checkbox" value="<%= jspUtil.out("role.roleKey") %>" name="roles"
+                id="role_${role.roleId}" <%
                 if (jspUtil.getValue("role", Roles.class).isChecked()) {
                     out.write("checked=\"checked\"");
-                } 
+                }
             %>/>
             <%= jspUtil.out("role.roleName") %>
         </label>
@@ -133,7 +133,7 @@ function deleteUser() {
     <div class="form-group">
         <label for="input_no"><%= jspUtil.label("label.regist.datetime") %> / <%= jspUtil.label("label.update.datetime") %></label>
         <p class="form-control-static">
-            <i class="fa fa-calendar"></i>&nbsp;<%= jspUtil.date("insertDatetime")%> / 
+            <i class="fa fa-calendar"></i>&nbsp;<%= jspUtil.date("insertDatetime")%> /
             <i class="fa fa-calendar"></i>&nbsp;<%= jspUtil.date("updateDatetime")%>
         </p>
     </div>

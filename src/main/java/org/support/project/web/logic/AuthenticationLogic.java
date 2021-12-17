@@ -17,10 +17,27 @@ import org.support.project.web.exception.AuthenticateException;
  */
 //@DI(impl=org.support.project.transparent.base.logic.impl.DefaultAuthenticationLogicImpl.class)
 public interface AuthenticationLogic<T extends LoginedUser> {
+    /**
+     * OAuth2.0 を使った認証
+     * @return url
+     * @throws IOException
+     */
     String authOAuth2() throws IOException;
 
+    /**
+     * 認可コードからアクセストークンを取得
+     * @param code
+     * @return token
+     * @throws IOException
+     */
     TokenEntity fetchTokenFromAuthCode(String code) throws IOException;
 
+    /**
+     * Google アカウント情報を取得
+     * @param token
+     * @return googleUser
+     * @throws IOException
+     */
     GoogleUserEntity fetchProfile(TokenEntity token) throws IOException;
 
     /**
@@ -94,8 +111,32 @@ public interface AuthenticationLogic<T extends LoginedUser> {
      */
     void initCookie(int cookieMaxAge, String cookieEncryptKey, boolean cookieSecure) throws AuthenticateException;
 
+    /**
+     * Google アカウント情報でユーザ登録
+     * @param googleUser
+     * @return usersEntity
+     */
     UsersEntity addUser(GoogleUserEntity googleUser);
 
+    /**
+     * メールアドレスからユーザを取得
+     * @param email
+     * @return usersEntity
+     */
     UsersEntity getUserFromMail(String email);
+
+    /**
+     * ユーザキーからユーザを取得
+     * @param key
+     * @return usersEntity
+     */
+    UsersEntity getUserFromKey(String key);
+
+    /**
+     * ユーザを更新
+     * @param user
+     * @return usersEntity
+     */
+    UsersEntity updateUser(UsersEntity user);
 
 }

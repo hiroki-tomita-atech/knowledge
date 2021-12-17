@@ -199,6 +199,15 @@
             <artifactId>log4j</artifactId>
             <version>1.2.17</version>
         </dependency>
+        <!--
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-bom</artifactId>
+            <version>2.15.0</version>
+            <type>pom</type>
+            <scope>import</scope>
+        </dependency>
+        -->
         <dependency>
             <groupId>com.jcabi</groupId>
             <artifactId>jcabi-log</artifactId>
@@ -327,7 +336,7 @@
 
         <dependency>
             <groupId>com.google.auth</groupId>
-            <artifactId>google-auth-library-credentials</artifactId>
+            <artifactId>google-auth-library-oauth2-http</artifactId>
             <version>1.2.2</version>
         </dependency>
 
@@ -402,8 +411,8 @@
                 <artifactId>frontend-maven-plugin</artifactId>
                 <version>1.3</version>
                 <configuration>
-                    <nodeVersion>v6.9.2</nodeVersion>
-                    <npmVersion>3.10.9</npmVersion>
+                    <nodeVersion>v14.15.4</nodeVersion>
+                    <npmVersion>6.14.10</npmVersion>
                 </configuration>
                 <executions>
                     <execution>
@@ -430,7 +439,6 @@
                             <arguments>start</arguments>
                         </configuration>
                     </execution>
-                    <!--
                     <execution>
                         <id>copy emoji</id>
                         <goals>
@@ -440,7 +448,6 @@
                             <arguments>run emoji</arguments>
                         </configuration>
                     </execution>
-                    -->
                     <!--
                     <execution>
                         <id>gulp</id>

@@ -22,4 +22,8 @@ public class TokenEntity {
     public String getScope() {
         return this.scope;
     }
+
+    public int getExpiresIn() {
+        return this.expiresIn;
+    }
 }

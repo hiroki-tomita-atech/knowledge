@@ -4,7 +4,10 @@ import java.io.IOException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Calendar;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 import javax.crypto.BadPaddingException;
 import javax.crypto.IllegalBlockSizeException;
@@ -54,12 +57,14 @@ import org.support.project.web.logic.AddUserProcess;
 import org.support.project.web.logic.LdapLogic;
 import org.support.project.web.logic.UserLogic;
 import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow;
-import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.gson.GsonFactory;
 import com.google.api.client.util.store.MemoryDataStoreFactory;
 import com.google.api.services.oauth2.Oauth2;
 import com.google.api.services.oauth2.model.Userinfo;
+import com.google.auth.http.HttpCredentialsAdapter;
+import com.google.auth.oauth2.AccessToken;
+import com.google.auth.oauth2.GoogleCredentials;
 import com.google.gson.FieldNamingPolicy;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -78,6 +83,7 @@ public class DefaultAuthenticationLogicImpl extends AbstractAuthenticationLogic<
     private String clientSecret = System.getenv("CLIENT_SECRET");
     private String redirectUrl = System.getenv("BASE_URL") + "/oauth2/callback";
     private String scopeUrl = "https://www.googleapis.com/auth/userinfo.email";
+    private List<String> scopes = Arrays.asList("email", "profile");
 
     /**
      * Cookieログインに使う情報の初期化
@@ -191,13 +197,19 @@ public class DefaultAuthenticationLogicImpl extends AbstractAuthenticationLogic<
         return false;
     }
 
+    /**
+     * OAuth2.0 を使った認証
+     * @return url
+     * @throws IOException
+     */
     public String authOAuth2() throws IOException {
         GoogleAuthorizationCodeFlow authFlow = new GoogleAuthorizationCodeFlow.Builder(
             new NetHttpTransport(),
             GsonFactory.getDefaultInstance(),
             this.clientId,
             this.clientSecret,
-            Collections.singleton(this.scopeUrl))
+            this.scopes)
+//            Collections.singleton(this.scopeUrl))
             .setDataStoreFactory(new MemoryDataStoreFactory())
             .setAccessType("offline").build();
 
@@ -205,6 +217,12 @@ public class DefaultAuthenticationLogicImpl extends AbstractAuthenticationLogic<
         return url;
     }
 
+    /**
+     * 認可コードからアクセストークンを取得
+     * @param code
+     * @return token
+     * @throws IOException
+     */
     public TokenEntity fetchTokenFromAuthCode(String code) throws IOException {
         String url = "https://oauth2.googleapis.com/token";
 
@@ -227,7 +245,6 @@ public class DefaultAuthenticationLogicImpl extends AbstractAuthenticationLogic<
         String result = null;
         if (response.getStatusLine().getStatusCode() == HttpStatus.SC_200_OK) {
             result = EntityUtils.toString(response.getEntity(), "UTF-8");
-            System.out.println(result);
         }
         response.close();
 
@@ -239,10 +256,23 @@ public class DefaultAuthenticationLogicImpl extends AbstractAuthenticationLogic<
         return token;
     }
 
+    /**
+     * Google アカウント情報を取得
+     * @param token
+     * @return googleUser
+     * @throws IOException
+     */
     public GoogleUserEntity fetchProfile(TokenEntity token) throws IOException {
-        GoogleCredential credential = new GoogleCredential().setAccessToken(token.getAccessToken());
-        Oauth2 oauth2 = new Oauth2.Builder(new NetHttpTransport(), GsonFactory.getDefaultInstance(), credential)
-                        .setApplicationName("Oauth2").build();
+        // AccessTokenに詰めるための有効期限日時を作成
+        Date date = new Date();
+        Calendar cal = Calendar.getInstance();
+        cal.setTime(date);
+        cal.add(Calendar.SECOND, token.getExpiresIn());
+
+        AccessToken accessToken = new AccessToken(token.getAccessToken(), cal.getTime());
+        GoogleCredentials credential = GoogleCredentials.create(accessToken);
+        Oauth2 oauth2 = new Oauth2.Builder(new NetHttpTransport(), GsonFactory.getDefaultInstance(),
+            new HttpCredentialsAdapter(credential)).build();
         Userinfo userinfo = oauth2.userinfo().get().execute();
 
         Gson gson = new GsonBuilder()
@@ -263,7 +293,6 @@ public class DefaultAuthenticationLogicImpl extends AbstractAuthenticationLogic<
     @Aspect(advice = org.support.project.ormapping.transaction.Transaction.class)
     public int auth(String userId, String password) throws AuthenticateException {
         initLogic();
-        System.out.println(userId + "：" + password);
 
         // Ldap認証が有効であれば、Ldap認証を実施する
         LdapConfigsDao dao = LdapConfigsDao.get();
@@ -417,6 +446,11 @@ public class DefaultAuthenticationLogicImpl extends AbstractAuthenticationLogic<
         return usersEntity;
     }
 
+    /**
+     * Google アカウント情報でユーザ登録
+     * @param googleUser
+     * @return usersEntity
+     */
     public UsersEntity addUser(GoogleUserEntity googleUser) {
         UsersEntity user = new UsersEntity();
         user.setUserKey(googleUser.getId());
@@ -434,9 +468,34 @@ public class DefaultAuthenticationLogicImpl extends AbstractAuthenticationLogic<
 
     }
 
+    /**
+     * メールアドレスからユーザを取得
+     * @param email
+     * @return usersEntity
+     */
     public UsersEntity getUserFromMail(String email) {
         UsersEntity user = UsersDao.get().selectOnMail(email);
         return user;
+    }
+
+    /**
+     * ユーザキーからユーザを取得
+     * @param key
+     * @return usersEntity
+     */
+    public UsersEntity getUserFromKey(String key) {
+        UsersEntity user = UsersDao.get().selectOnUserKey(key);
+        return user;
+    }
+
+    /**
+     * ユーザを更新
+     * @param user
+     * @return
+     */
+    public UsersEntity updateUser(UsersEntity user) {
+        UsersEntity updated = UsersDao.get().save(user);
+        return updated;
     }
 
 }

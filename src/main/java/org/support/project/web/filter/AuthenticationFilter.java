@@ -260,11 +260,32 @@ public class AuthenticationFilter implements Filter {
 
                 // トークンを使って Google からユーザプロフィール取得後、Knowledge 上のユーザエンティティ取得
                 GoogleUserEntity googleUser = authenticationLogic.fetchProfile(token);
-                UsersEntity user = authenticationLogic.getUserFromMail(googleUser.getEmail());
+                UsersEntity userFromKey = authenticationLogic.getUserFromKey(googleUser.getId());
 
-                // Knowledge 上にユーザ情報が見つからない場合、新規ユーザとして追加する
-                if(user == null) {
-                    user = authenticationLogic.addUser(googleUser);
+                UsersEntity user = null;
+//                UsersEntity user = authenticationLogic.getUserFromMail(googleUser.getEmail());
+
+                // ユーザキーで探して存在して、メールアドレスが Google アカウントと違う場合は更新する
+                if(userFromKey != null) {
+                    if(!userFromKey.getMailAddress().equals(googleUser.getEmail())) {
+                        userFromKey.setMailAddress(googleUser.getEmail());
+                        user = authenticationLogic.updateUser(userFromKey);
+                    } else {
+                        // メールアドレス更新の必要もない場合はそのままuser変数に入れる
+                        user = userFromKey;
+                    }
+                } else {
+                    // ユーザキーで見つからない場合、メールアドレスで探す
+                    UsersEntity userFromEmail = authenticationLogic.getUserFromMail(googleUser.getEmail());
+
+                    // 見つかった場合、ユーザキーを Google アカウントの ID で更新する
+                    if(userFromEmail != null) {
+                        userFromEmail.setUserKey(googleUser.getId());
+                        user = authenticationLogic.updateUser(userFromEmail);
+                    } else {
+                        // メールアドレスでも見つからない場合、新規ユーザとして追加する
+                        user = authenticationLogic.addUser(googleUser);
+                    }
                 }
 
                 // Knowledge へのログイン処理
