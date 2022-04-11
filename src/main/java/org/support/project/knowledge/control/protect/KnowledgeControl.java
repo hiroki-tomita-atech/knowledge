@@ -70,7 +70,7 @@ public class KnowledgeControl extends KnowledgeControlBase {
 
     /**
      * 登録画面を表示する
-     * 
+     *
      * @return
      */
     @Get(publishToken = "knowledge")
@@ -80,13 +80,13 @@ public class KnowledgeControl extends KnowledgeControlBase {
         setAttributeForEditPage();
 
         setAttribute("typeId", TemplateLogic.TYPE_ID_KNOWLEDGE); // 初期値
-        
+
         String offset = super.getParam("offset", String.class);
         if (StringUtils.isEmpty(offset)) {
             offset = "0";
         }
         setAttribute("offset", offset);
-        
+
         // グループが指定されてる場合はデフォルトで公開範囲と共同編集者を選択済みにする
         String groupId = super.getParam("group", String.class);
         if (StringUtils.isNotEmpty(groupId)) {
@@ -101,7 +101,7 @@ public class KnowledgeControl extends KnowledgeControlBase {
             setAttribute("groups", targets);
             setAttribute("editors", targets);
         }
-        
+
         if (getAttribute("publicFlag") == null) {
             UserConfigsEntity publicFlag = UserConfigsDao.get().physicalSelectOnKey(
                     UserConfig.DEFAULT_PUBLIC_FLAG, AppConfig.get().getSystemName(), getLoginUserId());
@@ -120,13 +120,13 @@ public class KnowledgeControl extends KnowledgeControlBase {
                 setAttribute("publicFlag", KnowledgeLogic.PUBLIC_FLAG_PRIVATE);
             }
         }
-        
+
         return forward("edit.jsp");
     }
 
     /**
      * 更新画面を表示する
-     * 
+     *
      * @return
      * @throws InvalidParamException
      */
@@ -147,7 +147,7 @@ public class KnowledgeControl extends KnowledgeControlBase {
         if (entity == null) {
             return sendError(HttpStatus.SC_404_NOT_FOUND, "NOT_FOUND");
         }
-        
+
         // 下書きが保存されている場合、下書きの内容を読み込む
         DraftKnowledgesEntity draft = DraftKnowledgesDao.get().selectOnKnowledgeAndUser(knowledgeId, getLoginUserId());
         if (draft != null) {
@@ -177,13 +177,13 @@ public class KnowledgeControl extends KnowledgeControlBase {
             }
             setAttributeOnProperty(entity);
         }
-        
+
         return forward("edit.jsp");
     }
 
     /**
      * 登録する APIによる保存とし、画面遷移は行わない
-     * 
+     *
      * @return
      * @throws Exception
      * @throws ParseException
@@ -206,22 +206,28 @@ public class KnowledgeControl extends KnowledgeControlBase {
                 item.setItemValue(itemValue);
             }
         }
-        
+
         KnowledgeData data = KnowledgeData.create(
                 entity, super.getParam("groups"), super.getParam("editors"), super.getParam("tagNames"),
                 getParam("files", String[].class), getParam("draftId", Long.class), template);
-        
+
         LOG.trace("save");
 
-        KnowledgesEntity insertedEntity = knowledgeLogic.insert(data, super.getLoginedUser(), false);
-        
+        // 新人研修報告用フォームで作成された記事は通知しない
+        // TODO: ID をハードコーディングしてるため、考えた方が良いかも
+        boolean ignoreNotification = false;
+        if(data.getTemplate().getTypeId() == 3) {
+            ignoreNotification = true;
+        }
+        KnowledgesEntity insertedEntity = knowledgeLogic.insert(data, super.getLoginedUser(), ignoreNotification);
+
         return sendMsg(MessageStatus.Success, HttpStatus.SC_200_OK,
                 String.valueOf(insertedEntity.getKnowledgeId()), "message.success.insert");
     }
 
     /**
      * 更新する APIによる保存とし、画面遷移は行わない
-     * 
+     *
      * @return
      * @throws Exception
      */
@@ -260,13 +266,13 @@ public class KnowledgeControl extends KnowledgeControlBase {
                     item.setItemValue(value.toString());
                 }
             }
-            
+
         }
 
         KnowledgeData data = KnowledgeData.create(
                 entity, super.getParam("groups"), super.getParam("editors"), super.getParam("tagNames"),
                 getParam("files", String[].class), getParam("draftId", Long.class), template);
-        
+
         KnowledgesDao dao = Container.getComp(KnowledgesDao.class);
         KnowledgesEntity check = dao.selectOnKey(entity.getKnowledgeId());
         if (check == null) {
@@ -282,7 +288,7 @@ public class KnowledgeControl extends KnowledgeControlBase {
             errors.add(new ValidateError("knowledge.edit.noaccess"));
             return sendValidateError(errors);
         }
-        
+
         // 明示的にユーザが、タイムラインの上にもっていきたくないと指定した
         if ("true".equals(super.getAttribute("notUpdateTimeline", "false"))) {
             data.setDonotUpdateTimeline(true);
@@ -307,9 +313,15 @@ public class KnowledgeControl extends KnowledgeControlBase {
                 }
             }
         }
+        // 新人研修報告用フォームで作成された記事は通知しない
+        // TODO: ID をハードコーディングしてるため、考えた方が良いかも
+        boolean ignoreNotification = false;
+        if(data.getTemplate().getTypeId() == 3) {
+            ignoreNotification = true;
+        }
         // 更新実行
-        KnowledgesEntity updatedEntity = knowledgeLogic.update(data, super.getLoginedUser(), false);
-        
+        KnowledgesEntity updatedEntity = knowledgeLogic.update(data, super.getLoginedUser(), ignoreNotification);
+
         if (data.isUpdateContent()) {
             return sendMsg(MessageStatus.Success, HttpStatus.SC_200_OK,
                     String.valueOf(updatedEntity.getKnowledgeId()), "knowledge.edit.update.content");
@@ -354,7 +366,7 @@ public class KnowledgeControl extends KnowledgeControlBase {
         draft.setEditors(super.getParam("editors"));
         draft.setTagNames(super.getParam("tagNames"));
         String[] files = getParam("files", String[].class);
-        
+
         TemplateMastersEntity template = TemplateMastersDao.get().selectWithItems(draft.getTypeId());
         List<TemplateItemsEntity> items = template.getItems();
         for (TemplateItemsEntity item : items) {
@@ -374,11 +386,11 @@ public class KnowledgeControl extends KnowledgeControlBase {
             return sendMsg(MessageStatus.Warning, HttpStatus.SC_403_FORBIDDEN, null, "knowledge.edit.noaccess");
         }
     }
-    
-    
+
+
     /**
      * ナレッジを削除
-     * 
+     *
      * @return
      * @throws Exception
      */
@@ -425,7 +437,7 @@ public class KnowledgeControl extends KnowledgeControlBase {
 
     /**
      * ログイン後、表示しなおし
-     * 
+     *
      * @return
      * @throws InvalidParamException
      */
@@ -440,7 +452,7 @@ public class KnowledgeControl extends KnowledgeControlBase {
 
     /**
      * コメント追加
-     * 
+     *
      * @return
      * @throws Exception
      */
@@ -495,7 +507,7 @@ public class KnowledgeControl extends KnowledgeControlBase {
 
     /**
      * 指定のナレッジにアクセスできる対象を取得
-     * 
+     *
      * @return
      * @throws InvalidParamException
      */
@@ -508,7 +520,7 @@ public class KnowledgeControl extends KnowledgeControlBase {
 
     /**
      * コメント編集画面を表示
-     * 
+     *
      * @return
      * @throws InvalidParamException
      */
@@ -562,7 +574,7 @@ public class KnowledgeControl extends KnowledgeControlBase {
 
     /**
      * コメントを更新
-     * 
+     *
      * @return
      * @throws Exception
      */
@@ -639,7 +651,7 @@ public class KnowledgeControl extends KnowledgeControlBase {
 
     /**
      * コメントを削除
-     * 
+     *
      * @return
      * @throws Exception
      */
@@ -671,7 +683,7 @@ public class KnowledgeControl extends KnowledgeControlBase {
         }
 
         KnowledgeLogic.get().deleteComment(db, getLoginedUser());
-        
+
         addMsgSuccess("message.success.delete.target", getResource("label.comment"));
         setAttribute("comment", null);
         return devolution(HttpMethod.get, "open.Knowledge/view", String.valueOf(db.getKnowledgeId()));
@@ -679,7 +691,7 @@ public class KnowledgeControl extends KnowledgeControlBase {
 
     /**
      * ナレッジをストックに保存
-     * 
+     *
      * @return
      * @throws IOException
      * @throws InvalidParamException
@@ -730,13 +742,13 @@ public class KnowledgeControl extends KnowledgeControlBase {
         }
         ActivityLogic.get().processActivity(Activity.KNOWLEDGE_STOCK, getLoginedUser(), DateUtils.now(),
                 KnowledgesDao.get().selectOnKey(knowledgeId));
-        
+
         return sendMsg(MessageStatus.Success, HttpStatus.SC_200_OK, "saved", "message.success.save");
     };
 
     /**
      * コメントを折りたたみ
-     * 
+     *
      * @return
      * @throws IOException
      * @throws InvalidParamException
